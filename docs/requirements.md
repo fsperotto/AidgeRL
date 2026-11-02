@@ -28,6 +28,9 @@ Generality must not make the single-agent case cumbersome. Integration must pres
 - Keep public contracts small and explicitly documented.
 - Preserve native observation/action structures unless conversion is necessary.
 - Support a minimal inference/controller path without buffers, optimizers, or training dependencies.
+- Limit the number of heavy dependencies and mandatory dependencies in general, if possible without making the own code heavy.
+- Be verbose on comments to explain commands and variables, except if too obvious.
+- Systematically use doc strings to explain files, classes, methods, and functions.
 
 ## 3. Environment contract
 
@@ -37,6 +40,8 @@ For single-agent interaction, retain Gymnasium semantics:
 obs, info = env.reset(seed=None, options=None)
 next_obs, reward, terminated, truncated, info = env.step(action)
 ```
+
+info can be None.
 
 The actual reset signature uses keyword-only seed/options. Construction configures an object; reset initializes an episode. Reset must not call an object's constructor again.
 
@@ -172,6 +177,8 @@ Avoid relying on private backend methods in the generic layer. Isolate unavoidab
 Do not require q_net, value tables, discrete actions, or enumeration merely to wrap a model. Preserve native recurrent-state and episode-start handling.
 
 Use adapter-side configuration translation where helpful; avoid mirroring every backend constructor argument in the core API. Preserve access to the wrapped object.
+
+An existent simulator should be easily integrated as an environment using an andapter.
 
 ## 11. Instrumentation, survival, and finite-space extensions
 
