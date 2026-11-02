@@ -41,3 +41,7 @@ Keep method discovery and actual adapter support aligned. Discovery must not
 import heavy optional backends. Distinguish supported, discoverable, and verified
 working integrations. A package distribution alone does not imply a reusable
 training API: CleanRL currently has no supported AidgeRL adapter.
+
+PufferLib integration targets the exact PyPI 3.0.0 source, which differs from the
+moving 3.0 branch. Preserve its algorithm semantics, document import side effects,
+and do not broaden the supported execution modes without a real backend test.

@@ -157,7 +157,7 @@ validation in an environment with SB3 installed.
 ```python
 from aidge_rl import list_packages, list_methods
 
-print(list_packages())                       # ['rllib', 'sb3']
+print(list_packages())                       # ['pufferlib', 'rllib', 'sb3']
 print(list_methods('SB3'))                    # ['A2C', 'DDPG', 'DQN', 'PPO', 'SAC', 'TD3']
 print(list_methods())                         # Mapping of package names to methods
 print(list_packages(installed_only=True))     # Discoverable backends in this runtime
@@ -219,3 +219,59 @@ The adapter is covered by dependency-free contract tests. Ray 2.49.2 installed
 successfully, but the attempted real smoke test could not start its local GCS
 service in the restricted implementation environment. The pinned version is the
 target API version, not a claim of verified end-to-end runtime compatibility.
+
+## Optional Python PufferLib PPO
+
+This adapter targets the **PyPI release `pufferlib==3.0.0`**, not the moving 3.0
+branch or native 5.0 stack. Dependencies remain optional:
+
+```bash
+pip install -e '.[pufferlib]'
+```
+
+PufferLib builds native extensions even for its Python trainer. Its upstream
+build may need NumPy, Torch, a C/C++ toolchain and system graphics dependencies.
+On Linux, ensure the configured `CC`/`CXX` compilers exist. An upstream
+`NO_OCEAN=1` metadata bug was observed for 3.0.0; that shortcut is not recommended.
+If building against an already installed Torch, upstream supports
+`--no-build-isolation` after installing its build requirements. Use a separate
+virtual environment because this historical backend constrains NumPy below 2,
+Gymnasium to <=0.29.1 and PettingZoo to <=1.24.1. Its extra cannot be combined
+with the newer Gymnasium/RLlib extras in the same dependency resolution.
+
+```python
+agent = Agent(package="pufferlib", method="PPO", seed=42,
+              training={"batch_size": 128, "minibatch_size": 64,
+                        "bptt_horizon": 16, "update_epochs": 1})
+try:
+    result = Trainer(agent, train_env).train(total_steps=1024)
+    records = Runner(eval_env, agent).run(seed=43)
+    agent.save("puffer_policy.pt")
+finally:
+    agent.close()
+```
+
+See `examples/train_pufferlib.py`. Initial scope: one caller-owned Gymnasium env,
+CPU feed-forward default policy, flat Box observations and Discrete actions.
+This is PufferLib's PPO **variant**, preserving its reward clipping and upstream
+termination/truncation behavior. It is not algorithmically identical to SB3 PPO.
+Rollout collection remains inside PuffeRL, not AidgeRL Runner. The adapter counts
+actual simulator step calls rather than upstream reset samples, so requested
+budgets may overshoot by a rollout. Continuation retains policy/optimizer state
+and requires the same training environment; LR annealing is disabled.
+
+Initialization must occur on the main thread so the adapter can restore the
+caller's SIGINT handler after upstream imports. Imports may still have upstream
+side effects, including resource symlinks; training configures Torch's numerical
+settings. `close()` releases backend buffers, monitoring threads and temporary
+checkpoints without closing the caller's environment. Explicit `save()` writes
+policy weights; checkpoint restoration is not implemented. GPU, recurrent,
+continuous-action and multiprocessing/vector-environment support are future work.
+
+Opt-in backend verification:
+`AIDGE_PUFFER_SMOKE=1 PYTHONPATH=src:. python -m unittest tests.test_pufferlib -v`.
+
+
+Validation: the actual PyPI PufferLib 3.0.0 source built successfully using GCC
+and its CartPole smoke passed training, a complete Runner episode, continuation,
+and cleanup. This is a functional check, not an algorithm performance benchmark.

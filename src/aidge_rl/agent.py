@@ -87,6 +87,17 @@ def _rllib_factory(*, method, observation_space, action_space, **options):
 register_package("rllib", _rllib_factory, methods=("PPO",), module="ray")
 
 
+
+def _pufferlib_factory(*, method, observation_space, action_space, **options):
+    """Resolve the Python-only PufferLib release without eager imports."""
+    from .adapters.pufferlib import PufferLibAgent
+    return PufferLibAgent(method=method, observation_space=observation_space,
+                          action_space=action_space, **options)
+
+
+register_package("pufferlib", _pufferlib_factory, methods=("PPO",), module="pufferlib")
+
+
 def list_packages(*, installed_only=False):
     """List registered integrations, optionally requiring a discoverable backend.
 

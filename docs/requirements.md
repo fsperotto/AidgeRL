@@ -381,3 +381,34 @@ These decisions supersede earlier proposals exposing backend-specific trainers.
   tests. Clearly distinguish target version from verified backend execution.
 - Distributed environment factories, recurrent policies, existing-model wrapping,
   and multi-agent training/policy views require separate follow-up work.
+
+## 22. Historical Python PufferLib integration
+
+- Pin the PyPI distribution pufferlib==3.0.0 as an optional pufferlib extra.
+  The moving 3.0 branch and native 5.0 are distinct APIs and are not supported.
+- Register PPO in method discovery and construct through the common Agent API.
+  No optional framework import occurs until backend training is requested.
+- Delegate rollout collection and updates to upstream PuffeRL; never copy PPO.
+- Initial boundary: single borrowed Gymnasium env, serial vectorizer, CPU default
+  feed-forward policy, flat Box observations and Discrete actions. Reject other
+  spaces/execution modes explicitly. Backend-specific training options live in
+  training={...}; resource paths, step budget and seed remain adapter-owned.
+- Count actual simulator step() calls, excluding upstream initial/reset sample
+  accounting. Continue with the same environment and same policy/optimizer.
+- Adapt trained logits to deterministic/stochastic Runner action selection.
+- Preserve and document upstream PPO-variant semantics, reward clipping and
+  termination/truncation behavior; do not imply equivalence to SB3 PPO.
+- Restore the host SIGINT handler and import warning filters. Main-thread import
+  is required; other upstream side effects must be documented.
+- Temporary automatic checkpoints belong to the adapter; explicit weight saves
+  belong to the caller. Close backend threads and vectors without closing the
+  borrowed environment. Provide dependency-free and optional real smoke tests.
+- GPU, recurrence, continuous actions, multiple envs, and checkpoint restoration
+  require follow-up support. Installation can require native build tooling.
+
+Validation completed against the actual PyPI 3.0.0 distribution, including
+Gymnasium 0.29.1/PettingZoo 1.24.1: CartPole training, a complete Runner episode,
+continuation and cleanup passed. This historical extra conflicts with newer
+Gymnasium/RLlib extras and must use its own environment. Adapter-owned Torch RNG
+state makes training sampling reproducible across repetitions without reseeding
+the host Torch RNG.
