@@ -98,6 +98,17 @@ def _pufferlib_factory(*, method, observation_space, action_space, **options):
 register_package("pufferlib", _pufferlib_factory, methods=("PPO",), module="pufferlib")
 
 
+
+def _skrl_factory(*, method, observation_space, action_space, **options):
+    """Resolve the Torch skrl PPO adapter without importing its backend."""
+    from .adapters.skrl import SkrlAgent
+    return SkrlAgent(method=method, observation_space=observation_space,
+                     action_space=action_space, **options)
+
+
+register_package("skrl", _skrl_factory, methods=("PPO",), module="skrl")
+
+
 def list_packages(*, installed_only=False):
     """List registered integrations, optionally requiring a discoverable backend.
 

@@ -45,3 +45,8 @@ training API: CleanRL currently has no supported AidgeRL adapter.
 PufferLib integration targets the exact PyPI 3.0.0 source, which differs from the
 moving 3.0 branch. Preserve its algorithm semantics, document import side effects,
 and do not broaden the supported execution modes without a real backend test.
+
+skrl targets the Torch 2.1.1 API with persistent StepTrainer state. Do not create
+a new trainer on continuation (agent.init would reset rollout bookkeeping).
+Explicitly retain CPU tensor placement even on GPU-equipped hosts, and disable
+exit-time environment close hooks. Broader skrl methods need their own tests.

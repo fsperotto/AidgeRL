@@ -412,3 +412,25 @@ continuation and cleanup passed. This historical extra conflicts with newer
 Gymnasium/RLlib extras and must use its own environment. Adapter-owned Torch RNG
 state makes training sampling reproducible across repetitions without reseeding
 the host Torch RNG.
+
+## 23. Optional skrl integration
+
+- Pin skrl[torch]==2.1.1 in an optional skrl extra; register PPO in discovery.
+- Keep dependency imports lazy and use the standard Agent/Trainer/Runner APIs.
+- Build native skrl categorical/Gaussian policy and deterministic value models,
+  RandomMemory and one persistent StepTrainer. Delegate optimization to PPO.
+- Initial scope: single Gymnasium environment, CPU feed-forward policy, flat Box
+  observations and Discrete/flat Box actions. Other algorithms/backends and model
+  adaptations must not be advertised until supported and tested.
+- Complete whole rollout boundaries; report actual step calls and overshoot.
+  Continue with the same env, model, optimizer, memory, trainer and Torch RNG
+  state. Training RNG must not reseed the host RNG.
+- Preserve termination/truncation flags via the native wrapper and avoid
+  implicit training during evaluation. Deterministic action selection uses
+  discrete argmax or continuous means; clip continuous actions to env bounds.
+- Never register exit-time environment shutdown or close caller-owned envs.
+  Disable automatic logs/checkpoints; expose explicit backend checkpoint saving.
+- Configure PPO through native training fields and default MLP hidden_sizes.
+  Document limited scope and optional real-backend verification separately.
+- Real CartPole/Pendulum tests verify training, full episodes, no parameter
+  changes during evaluation, optimizer/model continuation and checkpoint saves.

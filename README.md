@@ -157,7 +157,7 @@ validation in an environment with SB3 installed.
 ```python
 from aidge_rl import list_packages, list_methods
 
-print(list_packages())                       # ['pufferlib', 'rllib', 'sb3']
+print(list_packages())                       # ['pufferlib', 'rllib', 'sb3', 'skrl']
 print(list_methods('SB3'))                    # ['A2C', 'DDPG', 'DQN', 'PPO', 'SAC', 'TD3']
 print(list_methods())                         # Mapping of package names to methods
 print(list_packages(installed_only=True))     # Discoverable backends in this runtime
@@ -275,3 +275,47 @@ Opt-in backend verification:
 Validation: the actual PyPI PufferLib 3.0.0 source built successfully using GCC
 and its CartPole smoke passed training, a complete Runner episode, continuation,
 and cleanup. This is a functional check, not an algorithm performance benchmark.
+
+## Optional skrl Torch PPO
+
+Install the backend only when needed: `pip install -e '.[skrl]'`.
+This integration pins **skrl 2.1.1** and uses its PyTorch implementation.
+
+```python
+agent = Agent(package="skrl", method="PPO", seed=42,
+              hidden_sizes=(64, 64),
+              training={"rollouts": 32, "learning_epochs": 4,
+                        "mini_batches": 4, "learning_rate": 3e-4})
+try:
+    print(Trainer(agent, train_env).train(total_steps=1024))
+    records = Runner(eval_env, agent).run(seed=43)
+    agent.save("skrl_agent.pt")
+finally:
+    agent.close()
+```
+
+See `examples/train_skrl.py`. Initial support is CPU, one Gymnasium environment,
+feed-forward PPO, flat Box observations and Discrete/flat Box actions. The adapter
+uses skrl's model instantiators, RandomMemory and persistent StepTrainer; no PPO
+loss or optimizer is reimplemented. Backend options are native PPO_CFG fields
+inside `training={...}`; backend logging/checkpoint automation is disabled, and
+`save()` explicitly writes the backend checkpoint. Automatic preprocessors are
+not enabled unless configured by the caller.
+
+Training completes whole rollouts and reports actual simulator steps, so a small
+requested budget may overshoot. Continuing uses the same environment, policy,
+optimizer, memory and trainer. Training's Torch RNG is isolated from the host RNG.
+Runner evaluation does not ingest experience or update parameters. Continuous
+actions are clipped to the declared bounds; deterministic inference uses the
+policy mean for continuous actions and argmax for discrete actions.
+
+Caller owns the environments; the adapter registers no exit-time environment
+close hook. `agent.close()` disables further use. It does not close the supplied
+environment. Class/existing-object adaptation, GPU, JAX/Warp, recurrence,
+vectorization, multi-agent algorithms and checkpoint restoration remain future
+work; discovery advertises only PPO, not the full upstream algorithm catalog.
+
+Real skrl 2.1.1 tests passed on CartPole and Pendulum: training, complete episode
+inference, parameter-preserving evaluation, model/optimizer continuation and
+checkpoint saving. Run them explicitly with:
+`AIDGE_SKRL_SMOKE=1 PYTHONPATH=src:. python -m unittest tests.test_skrl -v`.

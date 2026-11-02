@@ -12,6 +12,7 @@ readme = "README.md"
 [project.optional-dependencies]
 gymnasium = ["gymnasium>=1,<2"]
 pufferlib = ["pufferlib==3.0.0"]
+skrl = ["skrl[torch]==2.1.1"]
 rllib = ["ray[rllib]==2.49.2", "torch>=2.2,<3"]
 sb3 = ["stable-baselines3>=2,<3"]
 
