@@ -151,3 +151,32 @@ evaluation, and thin model/simulator adapters. Native learning algorithms,
 vector/autoreset and turn-based adapters, and Aidge graph export remain future work.
 SB3 adapters are tested with public-API fixtures; real-backend integration needs
 validation in an environment with SB3 installed.
+
+## Discover supported packages and methods
+
+```python
+from aidge_rl import list_packages, list_methods
+
+print(list_packages())                       # ['sb3']
+print(list_methods('SB3'))                    # ['A2C', 'DDPG', 'DQN', 'PPO', 'SAC', 'TD3']
+print(list_methods())                         # Mapping of package names to methods
+print(list_packages(installed_only=True))     # Discoverable backends in this runtime
+```
+
+The default catalog lists supported adapters even before their optional backend
+is installed. `installed_only=True` checks module discoverability without importing
+backend code; it does not validate every transitive dependency. Native classes
+passed directly to Agent are not an enumerable package catalog. Custom adapters
+can declare methods/module metadata through
+`register_package(name, factory, methods=(...), module="import_name")`.
+
+### CleanRL compatibility
+
+CleanRL has a [PyPI distribution](https://pypi.org/project/cleanrl/), but its
+[official documentation](https://docs.cleanrl.dev/) explicitly says it is not a
+modular library and is not intended to be imported. Its standalone algorithm
+scripts do not provide an SB3-equivalent training API accepting an arbitrary
+existing environment and returning a reusable trained algorithm object.
+AidgeRL therefore does not advertise or register a CleanRL package adapter.
+A future integration would need an explicitly scoped script/checkpoint bridge
+or adapted algorithm implementation, rather than a thin SB3-style wrapper.

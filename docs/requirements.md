@@ -342,3 +342,21 @@ These decisions supersede earlier proposals exposing backend-specific trainers.
   to evaluation episodes and seeds the separate training environment before use.
 - SB3Trainer remains only as a legacy compatibility API; new examples and user
   workflows must use Agent and Trainer.
+
+## 20. Supported backend and method discovery
+
+- Expose list_packages(installed_only=False) and
+  list_methods(package=None, installed_only=False) at package top level.
+- Return sorted fresh lists of supported package names and declared method names;
+  omitting package returns a package-to-method mapping. Package matching is
+  case-insensitive; unknown/unsupported packages raise ValueError.
+- Distinguish supported integrations from installed backends. The optional
+  installed filter checks module discoverability, without importing frameworks
+  or promising complete runtime/dependency compatibility.
+- Extend register_package with optional methods and module metadata; preserve
+  existing two-argument registration. Class-based methods are not enumerable.
+- Keep SB3 method discovery and method-name resolution on one authoritative list.
+- CleanRL was investigated: its PyPI distribution does not make it an importable
+  modular RL framework like SB3. Its documentation explicitly discourages imports.
+  Do not register a nominal CleanRL adapter or copy training scripts into the core.
+  An explicit future script/checkpoint bridge requires its own design and tests.

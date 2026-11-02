@@ -34,3 +34,10 @@ git diff --check
 Add behavioral tests for changed lifecycle/training contracts. Use a real backend
 smoke test when available; explicitly report fixture-only verification when it is
 not. Never claim a Colab or real SB3 run was verified unless it actually ran.
+
+## Backend catalogs
+
+Keep method discovery and actual adapter support aligned. Discovery must not
+import heavy optional backends. Distinguish supported, discoverable, and verified
+working integrations. A package distribution alone does not imply a reusable
+training API: CleanRL currently has no supported AidgeRL adapter.

@@ -43,7 +43,8 @@ class SB3Agent:
             method = self.method
             if isinstance(method, str):
                 # An explicit whitelist prevents arbitrary backend attribute lookup.
-                if method not in {"PPO", "A2C", "DQN", "SAC", "TD3", "DDPG"}:
+                from ..agent import SB3_METHODS
+                if method not in SB3_METHODS:
                     raise ValueError(f"Unknown SB3 method: {method}")
                 import stable_baselines3
                 method = getattr(stable_baselines3, method)
