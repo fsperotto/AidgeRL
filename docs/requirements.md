@@ -47,7 +47,7 @@ The actual reset signature uses keyword-only seed/options. Construction configur
 
 Environments expose observation_space and action_space. Discrete, continuous, and structured spaces must be supported without assuming finite cardinality, integer indexing, or exhaustive enumeration.
 
-Preserve terminated and truncated separately through collection and learning. An episode boundary must be visible to the learner before experience is processed. A runner stopping collection does not automatically imply that the underlying task terminated.
+Preserve terminated and truncated separately through collection and learning. Every transition delivered to the learner must include the final termination and truncation flags for that transition. A runner stopping collection does not automatically imply that the underlying task terminated.
 
 Initial-state control and other episode-specific configuration should use reset options where compatible. Preserve render()/close() compatibility; external visualization remains optional.
 
@@ -254,3 +254,51 @@ Source reviewed: [fsperotto/PyRL, commit 6f37774](https://github.com/fsperotto/P
 
 Preserve the design ideas in agent.py, env.py, system.py, sim.py, renderer.py, and external-model wrappers. Do not port their discrete-space, budget, reset-training, or backend-private assumptions into the generic core.
 
+
+## 17. Experiment: repeated evaluation across methods and environments
+
+Experiment orchestrates statistical evaluation separately from Runner interaction.
+It accepts named agent factories and environment factories and evaluates their
+Cartesian product: different agents on the same environment, the same method on
+different environments, or both. Each pair is repeated independently.
+
+- Construct a fresh environment and a fresh or freshly loaded agent for every
+  method/environment/repetition combination. Factories must not return shared
+  mutable objects. Agent factories receive the evaluation environment and seed.
+- Evaluate several episodes per repetition without resetting learned parameters.
+  Evaluation must not collect training experience or update models implicitly.
+- Agent factories may train beforehand on separate training environments, or load
+  checkpoints. Report whether variation measures training seeds, evaluation seeds,
+  or both; repeating one checkpoint does not measure training variability.
+- Use reproducible, matched environment episode seeds between methods. This does
+  not guarantee identical stochastic trajectories when methods consume randomness
+  differently. Agent factories are responsible for backend/model seeding.
+- Keep raw results labeled with method, environment, repetition, seed, episode,
+  return, length, and termination/truncation flags.
+- Summarize returns within each repetition, then report the mean and sample
+  standard deviation across independent repetition means. A single repetition
+  has undefined sample standard deviation (None), not zero. More advanced
+  confidence intervals and hypothesis tests are optional future analysis.
+- Release evaluation environments on success and exceptions. Factory-created
+  training resources remain the factory's responsibility.
+- First implementation evaluates single-agent tasks. Multi-agent team evaluation,
+  persistence/export, parallel experiments, and advanced statistics are extensions.
+
+## 18. Initial implementation boundary
+
+The initial release supplies dependency-free protocols, ConstantAgent and
+RandomAgent, a state-observation mixin, a single/parallel multi-agent Runner,
+Transition records, Experiment, an existing-simulator callable adapter, and
+SB3 public prediction/native-training adapters. Use update callbacks for native
+learning schedules; the Runner never silently calls a backend training loop.
+The symmetric agent facade, native PPO/SAC, buffers, vector autoreset adapters,
+turn-based scheduling, and Aidge graph export are not yet implemented.
+
+Parallel environments must expose env.agents, act simultaneously, and retain
+final observations/rewards/flags for each agent that acted, including departing
+agents. Empty env.agents ends the shared episode. New agents require registered
+policies and their initial observation in the preceding environment result.
+Hooks receive (event, runner, payload); transition payloads retain joint records.
+Agent reset/act/observe use explicit stream_id; reset also accepts an optional
+seed. Borrowed observations must remain valid until consumed; copy_value can
+provide defensive snapshots for simulators that reuse buffers.

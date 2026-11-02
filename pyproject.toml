@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aidge-rl"
+version = "0.1.0"
+description = "Lightweight reinforcement learning interaction and evaluation"
+requires-python = ">=3.10"
+readme = "README.md"
+
+[project.optional-dependencies]
+gymnasium = ["gymnasium>=1,<2"]
+sb3 = ["stable-baselines3>=2,<3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
