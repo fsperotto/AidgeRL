@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from statistics import mean, stdev
 from .runner import Runner
+from .trainer import Trainer
 
 
 @dataclass(frozen=True)
@@ -23,25 +24,32 @@ class Experiment:
     """Evaluate the Cartesian product of methods and environments.
 
     env factories take no arguments. Agent factories take (env, seed), returning
-    a fresh or freshly loaded evaluation policy. They may train that policy on a
-    separate environment before returning it. Repetitions are independent; policy
+    a fresh or freshly loaded policy. In train_evaluate mode, Trainer trains
+    it on a separate environment before evaluation. Repetitions are independent; policy
     parameters persist across evaluation episodes within a repetition. This
     experiment evaluates single-agent tasks; multi-agent scheduling lives in Runner.
     """
 
     def __init__(self, agents, environments, *, repetitions=3, episodes=5,
-                 seed=0, episode_horizon=None):
-        """Store named factories and a reproducible matched seed schedule."""
+                 seed=0, episode_horizon=None, mode="evaluate", training_steps=None):
+        """Store factories, seed schedule, and evaluate/train_evaluate mode."""
         if not agents or not environments or repetitions <= 0 or episodes <= 0:
             raise ValueError("Nonempty factories and positive counts required")
         self.agents, self.environments = dict(agents), dict(environments)
         self.repetitions, self.episodes = repetitions, episodes
         self.seed, self.episode_horizon = seed, episode_horizon
+        if mode not in {"evaluate", "train_evaluate"}:
+            raise ValueError("mode must be evaluate or train_evaluate")
+        if mode == "train_evaluate" and (not isinstance(training_steps, int) or training_steps <= 0):
+            raise ValueError("train_evaluate requires positive training_steps")
+        self.mode, self.training_steps = mode, training_steps
+        self.training_results = []
         self.results = []
 
     def run(self):
         """Evaluate fresh objects per pair/repetition, closing envs on failure."""
         self.results = []
+        self.training_results = []
         for env_name, env_factory in self.environments.items():
             for agent_name, agent_factory in self.agents.items():
                 for repetition in range(self.repetitions):
@@ -51,6 +59,17 @@ class Experiment:
                     env = env_factory()
                     try:
                         agent = agent_factory(env, base_seed)
+                        if self.mode == "train_evaluate":
+                            train_env = env_factory()
+                            try:
+                                if train_env is env:
+                                    raise ValueError("Factories must create separate training/evaluation envs")
+                                train_env.reset(seed=base_seed)
+                                result = Trainer(agent, train_env).train(self.training_steps)
+                                self.training_results.append((agent_name, env_name, repetition, result))
+                            finally:
+                                if train_env is not env and hasattr(train_env, "close"):
+                                    train_env.close()
                         runner = Runner(env, agent, episode_horizon=self.episode_horizon)
                         for episode in range(self.episodes):
                             episode_seed = base_seed + episode + 1

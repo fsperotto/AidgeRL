@@ -77,17 +77,68 @@ summary SD is computed across repetition means, not all episodes pooled together
 Repeated evaluation of one fixed checkpoint measures evaluation variability,
 not independent training variability. Experiment currently evaluates single-agent tasks.
 
-## External models and simulators
+## Common agent construction and training
 
 ```python
-from aidge_rl.adapters import SB3Agent, SB3Trainer, SimulatorEnv
+import gymnasium as gym
+from aidge_rl import Agent, Trainer, Runner
 
-agent = SB3Agent(model, deterministic=True)  # public predict(), per-stream state
-SB3Trainer(model).learn(total_timesteps=10_000)  # SB3 owns training and collection
+train_env = gym.make("CartPole-v1")
+eval_env = gym.make("CartPole-v1")
+try:
+    agent = Agent(
+        package="SB3", method="PPO", policy="MlpPolicy",
+        observation_space=train_env.observation_space,
+        action_space=train_env.action_space,
+        learning_rate=3e-4, n_steps=128, seed=42, device="cpu",
+    )
+    result = Trainer(agent, train_env).train(total_steps=10_000)
+    print(result)  # Requested and actual interactions; rollouts may overshoot.
+    records = Runner(eval_env, agent).run(episodes=1, seed=43)
+    agent.model.save("ppo_cartpole")
+finally:
+    train_env.close()
+    eval_env.close()
 ```
 
-The wrapped model remains available as `.model`. SB3Trainer is used independently
-of Runner; externally collected transitions are not silently injected into SB3.
+`method=PPO` with `package="sb3"` also accepts an external class. Without a
+package, `method=MyNativeAgent` constructs a class implementing the common
+contract. `Agent(implementation=object)` wraps an existing native object;
+`Agent(package="sb3", implementation=model)` adapts an existing SB3 model.
+External classes require an explicit package; no backend inference is attempted.
+Use `register_package(name, factory)` to register lazy adapter construction.
+
+SB3 imports/model construction are deferred until training when using a method
+name. `agent.act()` before that initialization raises an actionable error.
+Trainer owns orchestration, while the adapter decides whether training delegates
+to the backend. Native agents can use observe/learn with Runner; choose an
+explicit update callback for algorithms needing a different update schedule.
+Training does not change the agent identity. Repeated calls continue learning.
+Trainer leaves environment ownership to its caller.
+
+## Train-and-evaluate experiments
+
+```python
+experiment = Experiment(
+    agents={"PPO": lambda env, seed: Agent(
+        package="sb3", method="PPO", seed=seed, device="cpu")},
+    environments={"CartPole": lambda: gym.make("CartPole-v1")},
+    mode="train_evaluate", training_steps=10_000,
+    repetitions=3, episodes=5, seed=42,
+)
+results = experiment.run()
+print(experiment.summary())
+print(experiment.training_results)
+```
+
+Each repetition creates a fresh agent and separate training/evaluation
+environments. Evaluate-only mode remains the default for pretrained policy
+factories. Factory functions must return fresh objects and seed their backend.
+
+## External models and simulators
+
+Direct `SB3Agent(model)` prediction adaptation remains available. `SB3Trainer`
+is retained for compatibility only; new code should use `Trainer(agent, env)`.
 SimulatorEnv accepts a simulator plus reset/step conversion callbacks and spaces.
 StateEnv is an optional mixin for replaceable observation models; external
 environments need not inherit from it or expose their hidden state.

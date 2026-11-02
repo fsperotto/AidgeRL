@@ -281,12 +281,12 @@ different environments, or both. Each pair is repeated independently.
   confidence intervals and hypothesis tests are optional future analysis.
 - Release evaluation environments on success and exceptions. Factory-created
   training resources remain the factory's responsibility.
-- First implementation evaluates single-agent tasks. Multi-agent team evaluation,
+- Experiment evaluates single-agent tasks in evaluate or train_evaluate mode. Multi-agent team evaluation,
   persistence/export, parallel experiments, and advanced statistics are extensions.
 
 ## 18. Initial implementation boundary
 
-The initial release supplies dependency-free protocols, ConstantAgent and
+The initial release supplies a uniform Agent facade and Trainer, dependency-free protocols, ConstantAgent and
 RandomAgent, a state-observation mixin, a single/parallel multi-agent Runner,
 Transition records, Experiment, an existing-simulator callable adapter, and
 SB3 public prediction/native-training adapters. Use update callbacks for native
@@ -302,3 +302,43 @@ Hooks receive (event, runner, payload); transition payloads retain joint records
 Agent reset/act/observe use explicit stream_id; reset also accepts an optional
 seed. Borrowed observations must remain valid until consumed; copy_value can
 provide defensive snapshots for simulators that reuse buffers.
+
+## 19. Uniform Agent construction and Trainer (implemented API)
+
+These decisions supersede earlier proposals exposing backend-specific trainers.
+
+- Agent(package="sb3", method="PPO", observation_space=..., action_space=...,
+  **options) resolves a supported method string through an explicit package
+  registry. Package names are case-insensitive; method names are backend names.
+- Agent(package="sb3", method=PPO, **options) accepts a backend class. External
+  classes require an explicit package; never infer adaptation from class names.
+- Agent(method=NativeClass, **options) constructs a native policy. Supplied spaces
+  are forwarded to that class only when provided.
+- Agent(implementation=existing) wraps an existing native object;
+  package="sb3" selects adaptation of an existing SB3 model. Do not combine
+  existing implementations with constructor options or a method.
+- register_package(name, factory) allows lazy integration without backend imports
+  in the core. Factories receive method, spaces, and backend options.
+- SB3 construction is deferred until an environment is passed to Trainer.
+  Validate declared spaces against that environment. Expose the wrapped model.
+- Trainer(agent, env).train(total_steps=...) is the backend-agnostic training API.
+  It uses the agent's train capability, or a Runner-based native loop using
+  observe and learn/an explicit update callback. Unsupported training fails
+  explicitly. No backend type checks belong in Trainer.
+- Delegated training returns TrainingResult(requested_steps, actual_steps).
+  Native training counts executed interactions; SB3 measures the change in
+  num_timesteps and may overshoot the budget to finish rollouts. Repeated calls
+  continue training without reconstructing weights or resetting step counters.
+- Episode reset never clears learned parameters. The same trained Agent must
+  work with Runner on a separate evaluation environment.
+- Trainer does not close caller-owned environments. Backend training options
+  are forwarded only on the delegated path. Runner-specific schedules/horizons
+  cannot silently change delegated execution.
+- Experiment defaults to mode="evaluate". mode="train_evaluate" requires positive
+  training_steps, creates separate train/evaluation envs per repetition, trains
+  through Trainer, evaluates through Runner, and closes both environments.
+  Store measured training_results separately from evaluation episode results.
+- Factories seed agent/model initialization. Experiment supplies matched seeds
+  to evaluation episodes and seeds the separate training environment before use.
+- SB3Trainer remains only as a legacy compatibility API; new examples and user
+  workflows must use Agent and Trainer.
