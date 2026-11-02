@@ -76,6 +76,17 @@ SB3_METHODS = ("A2C", "DDPG", "DQN", "PPO", "SAC", "TD3")
 register_package("sb3", _sb3_factory, methods=SB3_METHODS, module="stable_baselines3")
 
 
+
+def _rllib_factory(*, method, observation_space, action_space, **options):
+    """Resolve the optional adapter without importing the Ray runtime."""
+    from .adapters.rllib import RLlibAgent
+    return RLlibAgent(method=method, observation_space=observation_space,
+                      action_space=action_space, **options)
+
+
+register_package("rllib", _rllib_factory, methods=("PPO",), module="ray")
+
+
 def list_packages(*, installed_only=False):
     """List registered integrations, optionally requiring a discoverable backend.
 

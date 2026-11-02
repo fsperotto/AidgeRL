@@ -157,7 +157,7 @@ validation in an environment with SB3 installed.
 ```python
 from aidge_rl import list_packages, list_methods
 
-print(list_packages())                       # ['sb3']
+print(list_packages())                       # ['rllib', 'sb3']
 print(list_methods('SB3'))                    # ['A2C', 'DDPG', 'DQN', 'PPO', 'SAC', 'TD3']
 print(list_methods())                         # Mapping of package names to methods
 print(list_packages(installed_only=True))     # Discoverable backends in this runtime
@@ -180,3 +180,42 @@ existing environment and returning a reusable trained algorithm object.
 AidgeRL therefore does not advertise or register a CleanRL package adapter.
 A future integration would need an explicitly scoped script/checkpoint bridge
 or adapted algorithm implementation, rather than a thin SB3-style wrapper.
+
+
+## Optional Ray RLlib PPO
+
+Install explicitly: `pip install -e '.[rllib]'`. This extra pins Ray/RLlib 2.49.2
+and adds Torch; a plain AidgeRL install does not install or import either.
+
+```python
+agent = Agent(package="rllib", method="PPO", seed=42,
+              training={"train_batch_size_per_learner": 256,
+                        "minibatch_size": 64, "num_epochs": 2})
+try:
+    result = Trainer(agent, train_env).train(total_steps=1024)
+    records = Runner(eval_env, agent).run(episodes=1)
+finally:
+    agent.close()
+```
+
+See `examples/train_rllib.py`. The initial adapter supports local single-agent,
+feed-forward PPO, flat Box observations, and Discrete/Box actions. It applies
+RLlib action normalization/clipping during inference and reports sampled
+lifetime-step differences, including rollout overshoot. Repeated training uses
+the same model and original environment. `agent.model` exposes the algorithm;
+`agent.save(path)` saves a checkpoint. Loading checkpoints, recurrent policies,
+distributed factories, and joint multi-agent training are not implemented yet.
+External RLlib classes are not accepted by this first PPO-only adapter.
+
+Trainer leaves environments caller-owned. `agent.close()` stops the algorithm;
+it never explicitly shuts down shared Ray. RLlib may initialize Ray during build;
+applications own any global Ray runtime and shutdown policy. Experiment closes
+its factory-created agent and environments. Existing instances supplied directly
+to Agent with package='rllib' are not yet supported.
+
+Run optional real-backend smoke tests with:
+`AIDGE_RLLIB_SMOKE=1 PYTHONPATH=src:. python -m unittest tests.test_rllib -v`.
+The adapter is covered by dependency-free contract tests. Ray 2.49.2 installed
+successfully, but the attempted real smoke test could not start its local GCS
+service in the restricted implementation environment. The pinned version is the
+target API version, not a claim of verified end-to-end runtime compatibility.

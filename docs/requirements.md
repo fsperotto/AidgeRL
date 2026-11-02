@@ -360,3 +360,24 @@ These decisions supersede earlier proposals exposing backend-specific trainers.
   modular RL framework like SB3. Its documentation explicitly discourages imports.
   Do not register a nominal CleanRL adapter or copy training scripts into the core.
   An explicit future script/checkpoint bridge requires its own design and tests.
+
+
+## 21. Optional RLlib integration
+
+- Register package rllib with PPO only and include it in discovery without imports.
+- Dependencies must be an opt-in rllib extra (target Ray 2.49.2 plus Torch).
+- Use the common Agent/Trainer/Runner interfaces, lazy PPOConfig construction,
+  the new RLModule inference API, and backend-owned training iterations.
+- First scope is local single-agent feed-forward PPO, flat Box observations,
+  and Box/Discrete actions. Reject unsupported methods and spaces explicitly.
+- Preserve native distribution sampling and action normalization/clipping.
+- Report actual additional sampled environment steps, including rollout overshoot;
+  fail if metrics do not advance. Continue with the original training environment.
+- Caller owns training/evaluation environments. The borrowing wrapper must not
+  close them. Agent.close stops its algorithm without shutting down shared Ray.
+  Experiment must close its owned agents as well as environments on failure/success.
+- Save checkpoints through the algorithm public API; restoration is future scope.
+- Include dependency-free contract tests and opt-in real CartPole/Pendulum smoke
+  tests. Clearly distinguish target version from verified backend execution.
+- Distributed environment factories, recurrent policies, existing-model wrapping,
+  and multi-agent training/policy views require separate follow-up work.

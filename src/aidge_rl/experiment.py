@@ -56,6 +56,7 @@ class Experiment:
                     # Nonoverlapping blocks keep episode seeds reproducible and
                     # matched between methods on the same environment.
                     base_seed = self.seed + repetition * (self.episodes + 1)
+                    agent = None
                     env = env_factory()
                     try:
                         agent = agent_factory(env, base_seed)
@@ -85,8 +86,12 @@ class Experiment:
                                 bool(final and final.terminated),
                                 bool(final and final.truncated)))
                     finally:
-                        if hasattr(env, "close"):
-                            env.close()
+                        try:
+                            if agent is not None and hasattr(agent, "close"):
+                                agent.close()
+                        finally:
+                            if hasattr(env, "close"):
+                                env.close()
         return list(self.results)
 
     def summary(self):
